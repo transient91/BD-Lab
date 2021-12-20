@@ -25,7 +25,7 @@ data = sc.textFile(data_filename).map(lambda x: x.split(',')).map(
 N = data.count()  # 多维视图格数
 
 # sigma = .5 * (N - 1)
-sigma = .5  #计算share fitting的sigma
+sigma = .5  # niche size
 
 pc = 0.8  # 交叉概率
 pm = 0.1  # 变异概率
@@ -33,7 +33,7 @@ pm = 0.1  # 变异概率
 k = 8  # 选择Top-K视图
 vn = 10  #视图个数
 
-iteration = 100
+iteration = 50
 
 # TKV = [(3, 5, 6, 4), (4, 6, 7, 5), (4, 2, 5, 6), (7, 3, 6, 2), (3, 4, 6, 2),
 #    (5, 7, 2, 3), (3, 5, 4, 2), (4, 2, 3, 7)]
@@ -59,8 +59,13 @@ for it in range(iteration):
     rdd_obj = sc.parallelize(lst)
 
     # 打印当前种群
-    print(it)
-    rdd_obj.foreach(print)
+    # print(it)
+    # rdd_obj.foreach(print)
+
+    with open('./output.txt', 'a+', encoding='UTF-8') as f:
+        f.write('{}\n{}\n'.format(it,
+                                  '\n'.join(str(i)
+                                            for i in rdd_obj.collect())))
 
     # 求各个view的rank
     rdd_rank = sc.parallelize([])
@@ -160,13 +165,19 @@ for it in range(iteration):
     for i in range(0, vn, 2):
         if random.random() < pc:
             cp = random.randint(0, k - 1)
-            tmp = mating_pool[i][cp]
-            mating_pool[i][cp] = mating_pool[i + 1][cp]
-            mating_pool[i + 1][cp] = tmp
+            # 保证Top-k视图互不相同
+            if mating_pool[i][cp] not in mating_pool[i + 1] and mating_pool[
+                    i + 1][cp] not in mating_pool[i]:
+                tmp = mating_pool[i][cp]
+                mating_pool[i][cp] = mating_pool[i + 1][cp]
+                mating_pool[i + 1][cp] = tmp
 
     for i in range(vn):
         if random.random() < pm:
             mp = random.randint(0, k - 1)
-            mating_pool[i][mp] = random.randint(1, 7)
+            changeto = random.randint(2, N)
+            # 保证Top-k视图互不相同
+            if changeto not in mating_pool[i]:
+                mating_pool[i][mp] = changeto
 
     TKV = [tuple(i) for i in mating_pool]
